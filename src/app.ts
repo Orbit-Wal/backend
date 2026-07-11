@@ -12,7 +12,10 @@ export function createApp() {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") ?? "*" }));
+  // Default-deny: cross-origin requests are rejected unless CORS_ORIGIN is
+  // explicitly set. A wildcard default would let any website drive this API
+  // (including /wallet/send) from a logged-in user's browser.
+  app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") ?? false }));
   app.use(morgan("combined"));
   app.use(express.json({ limit: "10kb" }));
 
