@@ -1,10 +1,9 @@
 import "dotenv/config";
+import { config } from "./config";
 import { createApp } from "./app";
-
-const PORT = Number(process.env.PORT) || 4000;
 
 const app = createApp();
 
-app.listen(PORT, () => {
-  console.log(`GlobeWallet API running on port ${PORT}`);
+app.listen(config.PORT, () => {
+  console.log(`GlobeWallet API running on port ${config.PORT}`);
 });

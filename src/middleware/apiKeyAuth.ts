@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { timingSafeEqual } from "crypto";
+import { config } from "../config";
 
 function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
@@ -12,13 +13,7 @@ function safeEqual(a: string, b: string): boolean {
 // secret. This is an interim measure — see issue tracker for the JWT-based
 // per-user auth that should replace it.
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction) {
-  const expected = process.env.API_KEY;
-
-  if (!expected) {
-    // Fail closed: an unset API_KEY must never mean "open to everyone."
-    res.status(500).json({ error: "Server misconfigured: API_KEY is not set" });
-    return;
-  }
+  const expected = config.API_KEY;
 
   const provided = req.header("x-api-key");
 

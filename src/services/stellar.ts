@@ -1,15 +1,13 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
+import { config } from "../config";
 
 export class StellarService {
   private server: StellarSdk.Horizon.Server;
   private networkPassphrase: string;
 
   constructor() {
-    const horizonUrl =
-      process.env.HORIZON_URL ?? "https://horizon-testnet.stellar.org";
-    this.networkPassphrase =
-      process.env.NETWORK_PASSPHRASE ?? StellarSdk.Networks.TESTNET;
-    this.server = new StellarSdk.Horizon.Server(horizonUrl);
+    this.networkPassphrase = config.NETWORK_PASSPHRASE;
+    this.server = new StellarSdk.Horizon.Server(config.HORIZON_URL);
   }
 
   generateKeypair(): StellarSdk.Keypair {
