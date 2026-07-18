@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
 import { StellarService } from "../services/stellar";
-import { apiKeyAuth } from "../middleware/apiKeyAuth";
+import { jwtAuth } from "../middleware/jwtAuth";
 
 export function createWalletRouter(stellar: StellarService): Router {
   const walletRouter = Router();
@@ -9,6 +9,9 @@ export function createWalletRouter(stellar: StellarService): Router {
   // Fund-movement and key-generation endpoints must never be reachable by an
   // unauthenticated caller — gate the whole router.
   walletRouter.use(apiKeyAuth);
+// Fund-movement and key-generation endpoints must never be reachable by an
+// unauthenticated caller — gate the whole router.
+walletRouter.use(jwtAuth);
 
   walletRouter.post(
     "/send",

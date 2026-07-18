@@ -6,6 +6,7 @@ import { rateLimit } from "express-rate-limit";
 import { createWalletRouter } from "./routes/wallet";
 import { createAccountRouter } from "./routes/account";
 import { priceRouter } from "./routes/price";
+import { authRouter } from "./routes/auth";
 import { errorHandler } from "./middleware/errorHandler";
 import { config } from "./config";
 import { StellarService } from "./services/stellar";
@@ -34,6 +35,7 @@ export function createApp(stellar: StellarService = new StellarService()) {
   app.use("/api/v1/wallet", createWalletRouter(stellar));
   app.use("/api/v1/account", createAccountRouter(stellar));
   app.use("/api/v1/price", priceRouter);
+  app.use("/api/v1/auth", authRouter);
 
   app.use(errorHandler);
 
