@@ -6,6 +6,7 @@ import { rateLimit } from "express-rate-limit";
 import { walletRouter } from "./routes/wallet";
 import { accountRouter } from "./routes/account";
 import { priceRouter } from "./routes/price";
+import { authRouter } from "./routes/auth";
 import { errorHandler } from "./middleware/errorHandler";
 import { config } from "./config";
 
@@ -33,6 +34,7 @@ export function createApp() {
   app.use("/api/v1/wallet", walletRouter);
   app.use("/api/v1/account", accountRouter);
   app.use("/api/v1/price", priceRouter);
+  app.use("/api/v1/auth", authRouter);
 
   app.use(errorHandler);
 
