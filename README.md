@@ -57,6 +57,11 @@ Body for `/send`:
 }
 ```
 
+Concurrent `/send` calls for the same source account are serialized
+per-account (see [`docs/concurrency.md`](docs/concurrency.md)) — set
+`LOCK_BACKEND=redis` before running more than one instance of this API,
+or that serialization only holds within a single process.
+
 ### Price
 
 ```
@@ -76,7 +81,8 @@ src/
   utils/           # Helpers
   types/           # Shared TypeScript types
   config/          # Environment config validation
-tests/             # Jest integration tests
+tests/             # Jest unit/integration tests
+docs/              # Design docs (e.g. concurrency.md)
 ```
 
 ## Related Repos
