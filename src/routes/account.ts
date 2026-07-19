@@ -49,8 +49,13 @@ export function createAccountRouter(stellar: StellarService): Router {
           return res.status(400).json({ errors: errors.array() });
         }
         const limit = Math.min(Number(req.query.limit) || 20, 100);
-        const txs = await stellar.getTransactions(req.params.publicKey, limit);
-        res.json({ transactions: txs });
+        const cursor = req.query.cursor as string | undefined;
+        const result = await stellar.getTransactions(req.params.publicKey, { limit, cursor });
+        res.json({ 
+          transactions: result.transactions,
+          next: result.next,
+          hasMore: result.hasMore,
+        });
       } catch (err) {
         next(err);
       }

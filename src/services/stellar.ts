@@ -32,14 +32,29 @@ export class StellarService {
     return result;
   }
 
-  async getTransactions(publicKey: string, limit = 20) {
-    const records = await this.server
+  async getTransactions(
+    publicKey: string, 
+    optionsOrLimit?: { limit?: number; cursor?: string } | number
+  ) {
+    let limit = 20;
+    let cursor: string | undefined;
+    if (typeof optionsOrLimit === "number") {
+      limit = optionsOrLimit;
+    } else if (typeof optionsOrLimit === "object" && optionsOrLimit !== null) {
+      limit = optionsOrLimit.limit ?? 20;
+      cursor = optionsOrLimit.cursor;
+    }
+    
+    let builder = this.server
       .transactions()
       .forAccount(publicKey)
       .limit(limit)
-      .order("desc")
-      .call();
-    return records.records.map((tx) => ({
+      .order("desc");
+    if (cursor) {
+      builder = builder.cursor(cursor);
+    }
+    const records = await builder.call();
+    const transactions = records.records.map((tx) => ({
       id: tx.id,
       hash: tx.hash,
       ledger: tx.ledger,
@@ -47,6 +62,17 @@ export class StellarService {
       operation_count: tx.operation_count,
       memo: tx.memo,
     }));
+    const lastRecord = records.records[records.records.length - 1];
+    const result = {
+      transactions,
+      next: lastRecord ? (lastRecord as unknown as { paging_token: string }).paging_token : undefined,
+      hasMore: records.records.length === limit,
+    };
+    
+    if (typeof optionsOrLimit === "number") {
+      return transactions;
+    }
+    return result;
   }
 
   async sendPayment(params: {
