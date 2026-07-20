@@ -8,10 +8,7 @@ export function createWalletRouter(stellar: StellarService): Router {
 
   // Fund-movement and key-generation endpoints must never be reachable by an
   // unauthenticated caller — gate the whole router.
-  walletRouter.use(apiKeyAuth);
-// Fund-movement and key-generation endpoints must never be reachable by an
-// unauthenticated caller — gate the whole router.
-walletRouter.use(jwtAuth);
+  walletRouter.use(jwtAuth);
 
   walletRouter.post(
     "/send",

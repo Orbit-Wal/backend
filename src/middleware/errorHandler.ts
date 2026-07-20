@@ -1,5 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { LockAcquisitionError, SequenceConflictError } from "../services/stellarErrors";
+import {
+  SorobanNotConfiguredError,
+  SorobanSimulationError,
+  SorobanTransactionError,
+} from "../services/sorobanErrors";
 
 export function errorHandler(
   err: unknown,
@@ -22,6 +27,26 @@ export function errorHandler(
     res
       .status(503)
       .json({ error: err.message, code: err.code, retryable: err.retryable });
+    return;
+  }
+  if (err instanceof SorobanNotConfiguredError) {
+    res
+      .status(503)
+      .json({ error: err.message, code: err.code, retryable: err.retryable });
+    return;
+  }
+  if (err instanceof SorobanSimulationError) {
+    // Simulation caught this before anything was submitted or paid for —
+    // it's a rejected request, not a server fault.
+    res
+      .status(422)
+      .json({ error: err.message, code: err.code, retryable: err.retryable });
+    return;
+  }
+  if (err instanceof SorobanTransactionError) {
+    res
+      .status(502)
+      .json({ error: err.message, code: err.code, retryable: err.retryable, hash: err.hash });
     return;
   }
 
