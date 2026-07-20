@@ -1,9 +1,12 @@
 import "dotenv/config";
 import { config } from "./config";
 import { createApp } from "./app";
+import { ensureAuditTable } from "./db";
 
 const app = createApp();
 
-app.listen(config.PORT, () => {
-  console.log(`GlobeWallet API running on port ${config.PORT}`);
+ensureAuditTable().then(() => {
+  app.listen(config.PORT, () => {
+    console.log(`GlobeWallet API running on port ${config.PORT}`);
+  });
 });

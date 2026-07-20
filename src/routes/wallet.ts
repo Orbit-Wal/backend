@@ -2,6 +2,7 @@ import { Router } from "express";
 import { body, validationResult } from "express-validator";
 import { StellarService } from "../services/stellar";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
+import { logKeypairIssuance } from "../services/auditLog";
 
 export const walletRouter = Router();
 const stellar = new StellarService();
@@ -31,11 +32,22 @@ walletRouter.post(
   }
 );
 
-walletRouter.post("/keypair", (_req, res) => {
-  const keypair = stellar.generateKeypair();
-  res.json({
-    publicKey: keypair.publicKey(),
-    // NOTE: secret is returned only once — store it securely on the client
-    secretKey: keypair.secret(),
-  });
+walletRouter.post("/keypair", async (req, res, next) => {
+  try {
+    const keypair = stellar.generateKeypair();
+    const publicKey = keypair.publicKey();
+    const secretKey = keypair.secret();
+
+    await logKeypairIssuance(
+      req.header("x-api-key") ?? "",
+      publicKey
+    );
+
+    res.json({
+      publicKey,
+      secretKey,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
