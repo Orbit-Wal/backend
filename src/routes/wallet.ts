@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
 import { StellarService } from "../services/stellar";
-import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { logKeypairIssuance } from "../services/auditLog";
 import { jwtAuth } from "../middleware/jwtAuth";
 
@@ -10,10 +9,7 @@ export function createWalletRouter(stellar: StellarService): Router {
 
   // Fund-movement and key-generation endpoints must never be reachable by an
   // unauthenticated caller — gate the whole router.
-  walletRouter.use(apiKeyAuth);
-// Fund-movement and key-generation endpoints must never be reachable by an
-// unauthenticated caller — gate the whole router.
-walletRouter.use(jwtAuth);
+  walletRouter.use(jwtAuth);
 
   walletRouter.post(
     "/send",
@@ -36,32 +32,22 @@ walletRouter.use(jwtAuth);
     }
   );
 
-walletRouter.post("/keypair", async (req, res, next) => {
-  try {
-    const keypair = stellar.generateKeypair();
-    const publicKey = keypair.publicKey();
-    const secretKey = keypair.secret();
+  walletRouter.post("/keypair", async (req, res, next) => {
+    try {
+      const keypair = stellar.generateKeypair();
+      const publicKey = keypair.publicKey();
+      const secretKey = keypair.secret();
 
-    await logKeypairIssuance(
-      req.header("x-api-key") ?? "",
-      publicKey
-    );
+      await logKeypairIssuance(req.header("x-api-key") ?? "", publicKey);
 
-    res.json({
-      publicKey,
-      secretKey,
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-  walletRouter.post("/keypair", (_req, res) => {
-    const keypair = stellar.generateKeypair();
-    res.json({
-      publicKey: keypair.publicKey(),
-      // NOTE: secret is returned only once — store it securely on the client
-      secretKey: keypair.secret(),
-    });
+      res.json({
+        publicKey,
+        // NOTE: secret is returned only once — store it securely on the client
+        secretKey,
+      });
+    } catch (err) {
+      next(err);
+    }
   });
 
   return walletRouter;

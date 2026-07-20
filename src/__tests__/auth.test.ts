@@ -14,6 +14,12 @@ jest.mock("../services/stellar", () => {
   };
 });
 
+// POST /wallet/keypair now also writes an audit log entry (issue #43) via a
+// real pg Pool — mock it out so this suite doesn't need a live Postgres.
+jest.mock("../services/auditLog", () => ({
+  logKeypairIssuance: jest.fn().mockResolvedValue(undefined),
+}));
+
 import request from "supertest";
 import { createApp } from "../app";
 

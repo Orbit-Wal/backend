@@ -3,6 +3,15 @@ import { config } from "../config";
 import { AccountLock, InProcessAccountLock } from "./locks/accountLock";
 import { SequenceConflictError } from "./stellarErrors";
 
+export interface TransactionSummary {
+  id: string;
+  hash: string;
+  ledger: number;
+  created_at: string;
+  operation_count: number;
+  memo: string | undefined;
+}
+
 export class StellarService {
   private server: StellarSdk.Horizon.Server;
   private networkPassphrase: string;
@@ -33,7 +42,16 @@ export class StellarService {
   }
 
   async getTransactions(
-    publicKey: string, 
+    publicKey: string,
+    options?: { limit?: number; cursor?: string }
+  ): Promise<{
+    transactions: TransactionSummary[];
+    next: string | undefined;
+    hasMore: boolean;
+  }>;
+  async getTransactions(publicKey: string, limit: number): Promise<TransactionSummary[]>;
+  async getTransactions(
+    publicKey: string,
     optionsOrLimit?: { limit?: number; cursor?: string } | number
   ) {
     let limit = 20;
@@ -44,7 +62,7 @@ export class StellarService {
       limit = optionsOrLimit.limit ?? 20;
       cursor = optionsOrLimit.cursor;
     }
-    
+
     let builder = this.server
       .transactions()
       .forAccount(publicKey)
@@ -54,10 +72,15 @@ export class StellarService {
       builder = builder.cursor(cursor);
     }
     const records = await builder.call();
-    const transactions = records.records.map((tx) => ({
+    const transactions: TransactionSummary[] = records.records.map((tx) => ({
       id: tx.id,
       hash: tx.hash,
-      ledger: tx.ledger,
+      // NOTE: `tx.ledger` is a HAL link-follow function (CallFunction<LedgerRecord>),
+      // not the ledger sequence number — assigning it here would silently
+      // disappear from the JSON response (JSON.stringify drops function
+      // values). `ledger_attr` is Horizon's renamed field carrying the
+      // actual number.
+      ledger: tx.ledger_attr,
       created_at: tx.created_at,
       operation_count: tx.operation_count,
       memo: tx.memo,

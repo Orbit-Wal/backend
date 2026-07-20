@@ -10,10 +10,8 @@ async function main() {
   const stellar = new StellarService(lock);
   const app = createApp(stellar);
 
-ensureAuditTable().then(() => {
-  app.listen(config.PORT, () => {
-    console.log(`GlobeWallet API running on port ${config.PORT}`);
-  });
+  await ensureAuditTable();
+
   const server = app.listen(config.PORT, () => {
     console.log(
       `GlobeWallet API running on port ${config.PORT} (lock backend: ${config.LOCK_BACKEND})`
