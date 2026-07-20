@@ -9,7 +9,7 @@ REST API for the GlobeWallet ecosystem, built with Node.js + Express + TypeScrip
 | Runtime | Node.js 20 LTS |
 | Framework | Express 4 |
 | Language | TypeScript (strict) |
-| Stellar | @stellar/stellar-sdk |
+| Stellar | @stellar/stellar-sdk (Horizon + Soroban RPC) |
 | Validation | express-validator + Zod |
 | Security | helmet, cors, express-rate-limit |
 | Database | PostgreSQL (via pg) |
@@ -61,6 +61,26 @@ Concurrent `/send` calls for the same source account are serialized
 per-account (see [`docs/concurrency.md`](docs/concurrency.md)) — set
 `LOCK_BACKEND=redis` before running more than one instance of this API,
 or that serialization only holds within a single process.
+
+### Contract (Soroban — `globe-wallet`)
+
+```
+GET  /api/v1/contract/wallet/:publicKey/assets  → { assets: [{ code, issuer }] }
+POST /api/v1/contract/wallet/spend              → { hash, ledger, successful }
+```
+
+`GET .../assets` is public (read-only, simulated, no fee). `POST .../spend`
+requires a Bearer token (same as `/wallet/send`) and body:
+```json
+{
+  "userSecretKey": "S...",
+  "assetCode": "XLM",
+  "amount": "1000000"
+}
+```
+Requires `GLOBE_WALLET_CONTRACT_ID` — see `.env.example` and
+[`docs/soroban-integration.md`](docs/soroban-integration.md) for the
+design rationale and a real testnet run.
 
 ### Price
 

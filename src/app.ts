@@ -5,13 +5,19 @@ import morgan from "morgan";
 import { rateLimit } from "express-rate-limit";
 import { createWalletRouter } from "./routes/wallet";
 import { createAccountRouter } from "./routes/account";
+import { createContractRouter } from "./routes/contract";
 import { priceRouter } from "./routes/price";
 import { authRouter } from "./routes/auth";
 import { errorHandler } from "./middleware/errorHandler";
 import { config } from "./config";
 import { StellarService } from "./services/stellar";
+import { SorobanService } from "./services/soroban";
+import { GlobeWalletContract } from "./services/contracts/globeWallet";
 
-export function createApp(stellar: StellarService = new StellarService()) {
+export function createApp(
+  stellar: StellarService = new StellarService(),
+  globeWallet: GlobeWalletContract = new GlobeWalletContract(new SorobanService())
+) {
   const app = express();
 
   app.use(helmet());
@@ -34,6 +40,7 @@ export function createApp(stellar: StellarService = new StellarService()) {
   // Routes
   app.use("/api/v1/wallet", createWalletRouter(stellar));
   app.use("/api/v1/account", createAccountRouter(stellar));
+  app.use("/api/v1/contract", createContractRouter(globeWallet));
   app.use("/api/v1/price", priceRouter);
   app.use("/api/v1/auth", authRouter);
 
