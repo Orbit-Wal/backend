@@ -9,10 +9,13 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
-// Gates sensitive routes (key generation, fund movement) behind a shared
-// secret. This is an interim measure — see issue tracker for the JWT-based
-// per-user auth that should replace it.
+// DEPRECATED: Gates sensitive routes behind a shared API key.
+// Replaced by JWT-based per-user auth. Migrate by calling POST /api/v1/auth/login
+// with x-api-key to receive access/refresh tokens, then use Bearer auth.
+// Scheduled for removal in a future release.
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction) {
+  console.warn("[DEPRECATED] apiKeyAuth - use POST /api/v1/auth/login and Bearer tokens instead");
+  res.setHeader("X-Deprecated", "apiKeyAuth - use JWT auth via /api/v1/auth/login");
   const expected = config.API_KEY;
 
   const provided = req.header("x-api-key");

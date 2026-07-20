@@ -3,13 +3,15 @@ import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
 import { rateLimit } from "express-rate-limit";
-import { walletRouter } from "./routes/wallet";
-import { accountRouter } from "./routes/account";
+import { createWalletRouter } from "./routes/wallet";
+import { createAccountRouter } from "./routes/account";
 import { priceRouter } from "./routes/price";
+import { authRouter } from "./routes/auth";
 import { errorHandler } from "./middleware/errorHandler";
 import { config } from "./config";
+import { StellarService } from "./services/stellar";
 
-export function createApp() {
+export function createApp(stellar: StellarService = new StellarService()) {
   const app = express();
 
   app.use(helmet());
@@ -30,9 +32,10 @@ export function createApp() {
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
   // Routes
-  app.use("/api/v1/wallet", walletRouter);
-  app.use("/api/v1/account", accountRouter);
+  app.use("/api/v1/wallet", createWalletRouter(stellar));
+  app.use("/api/v1/account", createAccountRouter(stellar));
   app.use("/api/v1/price", priceRouter);
+  app.use("/api/v1/auth", authRouter);
 
   app.use(errorHandler);
 
