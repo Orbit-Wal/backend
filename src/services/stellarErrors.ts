@@ -23,3 +23,19 @@ export class LockAcquisitionError extends Error {
   readonly code = "LOCK_TIMEOUT" as const;
   readonly retryable = true;
 }
+
+/**
+ * Thrown when Horizon rejects a submission for a reason other than tx_bad_seq.
+ * These errors are deterministic — retrying with a fresh sequence number will
+ * not help (e.g. op_underfunded, op_no_destination). The caller should NOT
+ * blindly retry.
+ */
+export class NonRetryableHorizonError extends Error {
+  readonly name = "NonRetryableHorizonError";
+  readonly code = "HORIZON_REJECTED" as const;
+  readonly retryable = false;
+
+  constructor(message: string, readonly horizonResultCodes?: unknown) {
+    super(message);
+  }
+}

@@ -1,5 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import { LockAcquisitionError, SequenceConflictError } from "../services/stellarErrors";
+import {
+  LockAcquisitionError,
+  NonRetryableHorizonError,
+  SequenceConflictError,
+} from "../services/stellarErrors";
 import {
   SorobanNotConfiguredError,
   SorobanSimulationError,
@@ -26,6 +30,12 @@ export function errorHandler(
   if (err instanceof LockAcquisitionError) {
     res
       .status(503)
+      .json({ error: err.message, code: err.code, retryable: err.retryable });
+    return;
+  }
+  if (err instanceof NonRetryableHorizonError) {
+    res
+      .status(400)
       .json({ error: err.message, code: err.code, retryable: err.retryable });
     return;
   }
