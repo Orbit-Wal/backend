@@ -2,12 +2,31 @@ import { Router } from "express";
 import { param, validationResult } from "express-validator";
 import { StellarService } from "../services/stellar";
 
+/**
+ * Custom validator: rejects Muxed (M...) addresses.
+ * Horizon's REST API does not accept M-addresses in path segments — passing
+ * them through results in an opaque Horizon failure. We reject early with a
+ * clear 400 explaining why.
+ */
+function isGAddress(value: string): boolean {
+  if (typeof value !== "string") return false;
+  return value.startsWith("G") && value.length === 56;
+}
+
 export function createAccountRouter(stellar: StellarService): Router {
   const accountRouter = Router();
 
   accountRouter.get(
     "/:publicKey",
-    param("publicKey").isLength({ min: 56, max: 56 }),
+    param("publicKey").custom((value) => {
+      if (!isGAddress(value)) {
+        throw new Error(
+          "Invalid public key: only G... addresses are supported. " +
+            "Muxed (M...) addresses are not accepted — use the underlying G... address instead."
+        );
+      }
+      return true;
+    }),
     async (req, res, next) => {
       try {
         const errors = validationResult(req);
@@ -24,7 +43,15 @@ export function createAccountRouter(stellar: StellarService): Router {
 
   accountRouter.get(
     "/:publicKey/balances",
-    param("publicKey").isLength({ min: 56, max: 56 }),
+    param("publicKey").custom((value) => {
+      if (!isGAddress(value)) {
+        throw new Error(
+          "Invalid public key: only G... addresses are supported. " +
+            "Muxed (M...) addresses are not accepted — use the underlying G... address instead."
+        );
+      }
+      return true;
+    }),
     async (req, res, next) => {
       try {
         const errors = validationResult(req);
@@ -41,7 +68,15 @@ export function createAccountRouter(stellar: StellarService): Router {
 
   accountRouter.get(
     "/:publicKey/transactions",
-    param("publicKey").isLength({ min: 56, max: 56 }),
+    param("publicKey").custom((value) => {
+      if (!isGAddress(value)) {
+        throw new Error(
+          "Invalid public key: only G... addresses are supported. " +
+            "Muxed (M...) addresses are not accepted — use the underlying G... address instead."
+        );
+      }
+      return true;
+    }),
     async (req, res, next) => {
       try {
         const errors = validationResult(req);

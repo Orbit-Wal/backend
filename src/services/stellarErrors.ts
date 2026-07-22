@@ -17,6 +17,17 @@ export class SequenceConflictError extends Error {
   }
 }
 
+/**
+ * Thrown when the destination account requires a memo (SEP-29) but no memo
+ * was provided. This prevents accidental fund loss when sending to
+ * custodial/exchange accounts that rely on the memo to credit deposits.
+ */
+export class MemoRequiredError extends Error {
+  readonly name = "MemoRequiredError";
+  readonly code = "MEMO_REQUIRED" as const;
+  readonly retryable = false;
+}
+
 /** Thrown when a distributed (e.g. Redis) account lock can't be acquired in time. */
 export class LockAcquisitionError extends Error {
   readonly name = "LockAcquisitionError";
