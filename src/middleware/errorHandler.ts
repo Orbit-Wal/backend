@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import {
   LockAcquisitionError,
   MemoRequiredError,
+  NonRetryableHorizonError,
   SequenceConflictError,
 } from "../services/stellarErrors";
 import {
@@ -34,6 +35,7 @@ export function errorHandler(
     return;
   }
   if (err instanceof MemoRequiredError) {
+  if (err instanceof NonRetryableHorizonError) {
     res
       .status(400)
       .json({ error: err.message, code: err.code, retryable: err.retryable });
