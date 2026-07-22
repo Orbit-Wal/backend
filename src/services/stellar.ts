@@ -1,7 +1,7 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { config } from "../config";
 import { AccountLock, InProcessAccountLock } from "./locks/accountLock";
-import { SequenceConflictError } from "./stellarErrors";
+import { SequenceConflictError, MemoRequiredError } from "./stellarErrors";
 
 export interface TransactionSummary {
   id: string;
@@ -98,6 +98,27 @@ export class StellarService {
     return result;
   }
 
+  /**
+   * Check whether a destination account requires a memo (SEP-29).
+   * Accounts signal memo requirements by storing a data entry with the key
+   * "config.memo_required" set to the value "MQ==". This is the standard
+   * on-chain mechanism used by exchanges and custodial wallets.
+   */
+  async destinationRequiresMemo(publicKey: string): Promise<boolean> {
+    try {
+      const account = await this.getAccount(publicKey);
+      const data = account.data_attr as Record<string, string> | undefined;
+      if (data && data["config.memo_required"] === "MQ==") {
+        return true;
+      }
+      return false;
+    } catch {
+      // If the account doesn't exist on the network, we can't check —
+      // let the send proceed and Horizon will reject if needed.
+      return false;
+    }
+  }
+
   async sendPayment(params: {
     sourceSecretKey: string;
     destinationPublicKey: string;
@@ -108,6 +129,18 @@ export class StellarService {
     const { sourceSecretKey, destinationPublicKey, amount, asset, memo } = params;
     const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecretKey);
     const sourcePublicKey = sourceKeypair.publicKey();
+
+    // SEP-29: check whether the destination account requires a memo before
+    // building the transaction. This prevents accidental fund loss when
+    // sending to custodial/exchange accounts that rely on the memo to
+    // credit the deposit.
+    const requiresMemo = await this.destinationRequiresMemo(destinationPublicKey);
+    if (requiresMemo && !memo) {
+      throw new MemoRequiredError(
+        `The destination account ${destinationPublicKey} requires a memo for transactions. ` +
+          "Please provide a memo to avoid losing funds. (SEP-29)"
+      );
+    }
 
     // Two concurrent sends from the same source account both read the same
     // starting sequence number and race on submission: the loser gets a
@@ -145,6 +178,43 @@ export class StellarService {
         throw translateSubmissionError(err, sourcePublicKey);
       }
     });
+  }
+
+  /**
+   * Wrap a previously signed transaction in a fee-bump envelope (CAP-15).
+   * The inner transaction's signatures are untouched — only the outer
+   * fee-bump envelope is signed with the fee source's key. This lets callers
+   * rescue a stuck transaction whose base fee was too low for network
+   * congestion, without re-signing the inner transaction or changing the
+   * sequence number.
+   */
+  async feeBumpTransaction(params: {
+    transactionXdr: string;
+    feeSecretKey: string;
+    fee?: string;
+  }) {
+    const { transactionXdr, feeSecretKey, fee } = params;
+    const feeKeypair = StellarSdk.Keypair.fromSecret(feeSecretKey);
+    const feePublicKey = feeKeypair.publicKey();
+
+    const innerTx = new StellarSdk.Transaction(
+      transactionXdr,
+      this.networkPassphrase
+    );
+
+    const feeBumpTx = StellarSdk.FeeBumpTransaction({
+      innerTransaction: innerTx,
+      fee: fee ? String(fee) : String(100 * StellarSdk.BASE_FEE),
+      feeSource: feePublicKey,
+    });
+
+    feeBumpTx.sign(feeKeypair);
+
+    try {
+      return await this.server.submitTransaction(feeBumpTx);
+    } catch (err) {
+      throw translateSubmissionError(err, feePublicKey);
+    }
   }
 }
 
