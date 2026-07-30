@@ -47,8 +47,9 @@ describe("Account routes muxed-address rejection (issue #5)", () => {
     const res = await request(app)
       .get(`/api/v1/account/${M_ADDRESS}`)
       .expect(400);
-    expect(res.body.errors).toBeDefined();
-    expect(JSON.stringify(res.body)).toContain("Muxed");
+    expect(res.body.code).toBe("VALIDATION_ERROR");
+    expect(res.body.details[0].path).toBe("publicKey");
+    expect(res.body.details[0].message).toContain("Muxed");
   });
 
   it("accepts a G... address on GET /:publicKey/balances", async () => {
@@ -62,8 +63,9 @@ describe("Account routes muxed-address rejection (issue #5)", () => {
     const res = await request(app)
       .get(`/api/v1/account/${M_ADDRESS}/balances`)
       .expect(400);
-    expect(res.body.errors).toBeDefined();
-    expect(JSON.stringify(res.body)).toContain("Muxed");
+    expect(res.body.code).toBe("VALIDATION_ERROR");
+    expect(res.body.details[0].path).toBe("publicKey");
+    expect(res.body.details[0].message).toContain("Muxed");
   });
 
   it("accepts a G... address on GET /:publicKey/transactions", async () => {
@@ -77,16 +79,16 @@ describe("Account routes muxed-address rejection (issue #5)", () => {
     const res = await request(app)
       .get(`/api/v1/account/${M_ADDRESS}/transactions`)
       .expect(400);
-    expect(res.body.errors).toBeDefined();
-    expect(JSON.stringify(res.body)).toContain("Muxed");
+    expect(res.body.code).toBe("VALIDATION_ERROR");
+    expect(res.body.details[0].path).toBe("publicKey");
+    expect(res.body.details[0].message).toContain("Muxed");
   });
 });
 
 describe("Wallet /send muxed-address rejection (issue #5)", () => {
-  const M_ADDRESS = "MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7345A";
+  const M_ADDRESS = "M" + "A".repeat(55);
 
   it("rejects M... destination with 400", async () => {
-    // Need a valid JWT first
     const login = await request(app)
       .post("/api/v1/auth/login")
       .set("x-api-key", "test-api-key");
@@ -96,12 +98,17 @@ describe("Wallet /send muxed-address rejection (issue #5)", () => {
       .post("/api/v1/wallet/send")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
-        sourceSecretKey: "SABC1234",
+        sourceSecretKey: "S".repeat(56),
         destinationPublicKey: M_ADDRESS,
         amount: "10",
       })
       .expect(400);
-    expect(res.body.errors).toBeDefined();
-    expect(JSON.stringify(res.body)).toContain("Muxed");
+    expect(res.body.code).toBe("VALIDATION_ERROR");
+    expect(res.body.details).toEqual([
+      expect.objectContaining({
+        path: "destinationPublicKey",
+      }),
+    ]);
+    expect(res.body.details[0].message).toContain("Muxed");
   });
 });

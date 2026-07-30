@@ -1,10 +1,11 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
+import { NotFoundError } from "../errors/appError";
 import { config } from "../config";
 import { AccountLock, InProcessAccountLock } from "./locks/accountLock";
-import { SequenceConflictError, MemoRequiredError } from "./stellarErrors";
 import {
-  SequenceConflictError,
+  MemoRequiredError,
   NonRetryableHorizonError,
+  SequenceConflictError,
 } from "./stellarErrors";
 
 export interface TransactionSummary {
@@ -38,7 +39,14 @@ export class StellarService {
   }
 
   async getAccount(publicKey: string) {
-    return this.server.loadAccount(publicKey);
+    try {
+      return await this.server.loadAccount(publicKey);
+    } catch (err) {
+      if (hasResponseStatus(err, 404)) {
+        throw new NotFoundError(`Account ${publicKey} was not found on Horizon`, "ACCOUNT_NOT_FOUND");
+      }
+      throw err;
+    }
   }
 
   async getBalances(publicKey: string): Promise<Record<string, string>> {
@@ -393,16 +401,9 @@ export class StellarService {
     const { sourceAmount, sourceAsset, destinationAsset, destinationPublicKey } = params;
     const srcAsset = sourceAsset ? parseAsset(sourceAsset) : StellarSdk.Asset.native();
     const destAst = parseAsset(destinationAsset);
+    const destination = destinationPublicKey ?? [destAst];
 
-    const query = this.server
-      .paths()
-      .strictSend({
-        source_asset: srcAsset.isNative() ? undefined : srcAsset,
-        source_amount: sourceAmount,
-      })
-      .strictReceive(destinationAsset, destAst.isNative() ? undefined : destAst)
-      .destinationAccount(destinationPublicKey ?? config.HORIZON_URL)
-      .limit(5);
+    const query = this.server.strictSendPaths(srcAsset, sourceAmount, destination).limit(5);
 
     const result = await query.call();
     return result.records as unknown[];
@@ -417,16 +418,9 @@ export class StellarService {
     const { destinationAmount, destinationAsset, sourceAsset, destinationPublicKey } = params;
     const destAst = parseAsset(destinationAsset);
     const srcAsset = sourceAsset ? parseAsset(sourceAsset) : StellarSdk.Asset.native();
+    const source = destinationPublicKey ?? [srcAsset];
 
-    const query = this.server
-      .paths()
-      .strictReceive({
-        destination_asset: destAst.isNative() ? undefined : destAst,
-        destination_amount: destinationAmount,
-      })
-      .strictSend(sourceAsset, srcAsset.isNative() ? undefined : srcAsset)
-      .destinationAccount(destinationPublicKey ?? config.HORIZON_URL)
-      .limit(5);
+    const query = this.server.strictReceivePaths(source, destAst, destinationAmount).limit(5);
 
     const result = await query.call();
     return result.records as unknown[];
@@ -481,14 +475,6 @@ export class StellarService {
     });
   }
 
-  /**
-   * Wrap a previously signed transaction in a fee-bump envelope (CAP-15).
-   * The inner transaction's signatures are untouched — only the outer
-   * fee-bump envelope is signed with the fee source's key. This lets callers
-   * rescue a stuck transaction whose base fee was too low for network
-   * congestion, without re-signing the inner transaction or changing the
-   * sequence number.
-   */
   async feeBumpTransaction(params: {
     transactionXdr: string;
     feeSecretKey: string;
@@ -503,11 +489,12 @@ export class StellarService {
       this.networkPassphrase
     );
 
-    const feeBumpTx = StellarSdk.FeeBumpTransaction({
-      innerTransaction: innerTx,
-      fee: fee ? String(fee) : String(100 * StellarSdk.BASE_FEE),
-      feeSource: feePublicKey,
-    });
+    const feeBumpTx = StellarSdk.TransactionBuilder.buildFeeBumpTransaction(
+      feePublicKey,
+      fee ?? String(Number(StellarSdk.BASE_FEE) * 100),
+      innerTx,
+      this.networkPassphrase
+    );
 
     feeBumpTx.sign(feeKeypair);
 
@@ -517,11 +504,7 @@ export class StellarService {
       throw translateSubmissionError(err, feePublicKey);
     }
   }
-   * Merges additional signer signatures into a partially-signed transaction
-   * XDR and submits the result to Horizon.  Callers provide the base64 XDR
-   * returned by `buildPartialTransaction` plus one or more additional
-   * secret keys whose signatures satisfy the remaining threshold weight.
-   */
+
   async submitWithAdditionalSignatures(params: {
     xdr: string;
     signerSecretKeys: string[];
@@ -577,6 +560,11 @@ function isTxBadSeq(err: unknown): boolean {
   const resultCodes = (err.response as { extras?: { result_codes?: unknown } } | undefined)
     ?.extras?.result_codes as { transaction?: string } | undefined;
   return resultCodes?.transaction === "tx_bad_seq";
+}
+
+function hasResponseStatus(err: unknown, status: number): boolean {
+  const response = err as { response?: { status?: number } } | undefined;
+  return response?.response?.status === status;
 }
 
 function translateSubmissionError(err: unknown, sourcePublicKey: string): unknown {

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { timingSafeEqual } from "crypto";
 import { config } from "../config";
+import { UnauthorizedError } from "../errors/appError";
 
 function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
@@ -9,10 +10,6 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
-// DEPRECATED: Gates sensitive routes behind a shared API key.
-// Replaced by JWT-based per-user auth. Migrate by calling POST /api/v1/auth/login
-// with x-api-key to receive access/refresh tokens, then use Bearer auth.
-// Scheduled for removal in a future release.
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction) {
   console.warn("[DEPRECATED] apiKeyAuth - use POST /api/v1/auth/login and Bearer tokens instead");
   res.setHeader("X-Deprecated", "apiKeyAuth - use JWT auth via /api/v1/auth/login");
@@ -21,7 +18,7 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction) {
   const provided = req.header("x-api-key");
 
   if (!provided || !safeEqual(provided, expected)) {
-    res.status(401).json({ error: "Unauthorized" });
+    next(new UnauthorizedError("Unauthorized", "API_KEY_UNAUTHORIZED"));
     return;
   }
 

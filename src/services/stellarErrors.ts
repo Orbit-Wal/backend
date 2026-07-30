@@ -1,52 +1,43 @@
-/**
- * Thrown when Horizon rejects a submission with tx_bad_seq: the source
- * account's sequence number moved between when we read it and when the
- * transaction landed. With the per-account lock in place this should be
- * rare (it means something outside this process's lock also submitted for
- * this account — e.g. another deployed instance without a shared Redis
- * lock, or the key being used elsewhere) but callers still need a clear,
- * actionable signal rather than a raw Horizon error blob.
- */
-export class SequenceConflictError extends Error {
-  readonly name = "SequenceConflictError";
-  readonly code = "SEQUENCE_CONFLICT" as const;
-  readonly retryable = true;
+import { AppError, HorizonError } from "../errors/appError";
 
+export class SequenceConflictError extends HorizonError {
   constructor(message: string, readonly horizonResultCodes?: unknown) {
-    super(message);
+    super(message, {
+      code: "SEQUENCE_CONFLICT",
+      details: horizonResultCodes ? { horizonResultCodes } : undefined,
+      retryable: true,
+      status: 409,
+    });
   }
 }
 
-/**
- * Thrown when the destination account requires a memo (SEP-29) but no memo
- * was provided. This prevents accidental fund loss when sending to
- * custodial/exchange accounts that rely on the memo to credit deposits.
- */
-export class MemoRequiredError extends Error {
-  readonly name = "MemoRequiredError";
-  readonly code = "MEMO_REQUIRED" as const;
-  readonly retryable = false;
+export class MemoRequiredError extends AppError {
+  constructor(message: string) {
+    super(message, {
+      code: "MEMO_REQUIRED",
+      retryable: false,
+      status: 422,
+    });
+  }
 }
 
-/** Thrown when a distributed (e.g. Redis) account lock can't be acquired in time. */
-export class LockAcquisitionError extends Error {
-  readonly name = "LockAcquisitionError";
-  readonly code = "LOCK_TIMEOUT" as const;
-  readonly retryable = true;
+export class LockAcquisitionError extends AppError {
+  constructor(message: string) {
+    super(message, {
+      code: "LOCK_TIMEOUT",
+      retryable: true,
+      status: 503,
+    });
+  }
 }
 
-/**
- * Thrown when Horizon rejects a submission for a reason other than tx_bad_seq.
- * These errors are deterministic — retrying with a fresh sequence number will
- * not help (e.g. op_underfunded, op_no_destination). The caller should NOT
- * blindly retry.
- */
-export class NonRetryableHorizonError extends Error {
-  readonly name = "NonRetryableHorizonError";
-  readonly code = "HORIZON_REJECTED" as const;
-  readonly retryable = false;
-
+export class NonRetryableHorizonError extends HorizonError {
   constructor(message: string, readonly horizonResultCodes?: unknown) {
-    super(message);
+    super(message, {
+      code: "HORIZON_REJECTED",
+      details: horizonResultCodes ? { horizonResultCodes } : undefined,
+      retryable: false,
+      status: 400,
+    });
   }
 }

@@ -13,6 +13,7 @@ import { config } from "./config";
 import { StellarService } from "./services/stellar";
 import { SorobanService } from "./services/soroban";
 import { GlobeWalletContract } from "./services/contracts/globeWallet";
+import { NotFoundError } from "./errors/appError";
 
 export function createApp(
   stellar: StellarService = new StellarService(),
@@ -43,6 +44,15 @@ export function createApp(
   app.use("/api/v1/contract", createContractRouter(globeWallet));
   app.use("/api/v1/price", priceRouter);
   app.use("/api/v1/auth", authRouter);
+
+  app.use((req, _res, next) => {
+    next(
+      new NotFoundError(
+        `Route ${req.method} ${req.originalUrl} was not found`,
+        "ROUTE_NOT_FOUND"
+      )
+    );
+  });
 
   app.use(errorHandler);
 

@@ -1,6 +1,8 @@
 import { Router } from "express";
-import { body, validationResult } from "express-validator";
+import { body } from "express-validator";
+import { UnauthorizedError } from "../errors/appError";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
+import { assertValidRequest } from "../middleware/requestValidation";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -24,35 +26,37 @@ authRouter.post(
 authRouter.post(
   "/refresh",
   body("refreshToken").isString().notEmpty(),
-  (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
-      return;
+  (req, res, next) => {
+    try {
+      assertValidRequest(req);
+      const result = rotateRefreshToken(req.body.refreshToken);
+      if (!result) {
+        throw new UnauthorizedError(
+          "Invalid, expired, or revoked refresh token",
+          "REFRESH_TOKEN_INVALID"
+        );
+      }
+      res.json({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        tokenType: "Bearer",
+      });
+    } catch (err) {
+      next(err);
     }
-    const result = rotateRefreshToken(req.body.refreshToken);
-    if (!result) {
-      res.status(401).json({ error: "Invalid, expired, or revoked refresh token" });
-      return;
-    }
-    res.json({
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-      tokenType: "Bearer",
-    });
   }
 );
 
 authRouter.post(
   "/logout",
   body("refreshToken").isString().notEmpty(),
-  (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
-      return;
+  (req, res, next) => {
+    try {
+      assertValidRequest(req);
+      revokeRefreshToken(req.body.refreshToken);
+      res.json({ message: "Logged out" });
+    } catch (err) {
+      next(err);
     }
-    revokeRefreshToken(req.body.refreshToken);
-    res.json({ message: "Logged out" });
   }
 );
