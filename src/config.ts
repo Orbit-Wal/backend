@@ -24,6 +24,25 @@ const envSchema = z.object({
   // Deployed globe-wallet contract ID (C...). Optional so the API can still
   // boot without it; /api/v1/contract/wallet/* routes respond 503 until set.
   GLOBE_WALLET_CONTRACT_ID: z.string().optional(),
+
+  // Number of trusted reverse-proxy hops in front of this service, passed
+  // straight to Express's `trust proxy` setting (see src/app.ts). This
+  // determines which X-Forwarded-For entry Express treats as the real
+  // client IP, which is what express-rate-limit keys its per-IP buckets on.
+  //
+  // Must match the ACTUAL deployment topology — docs/concurrency.md already
+  // documents this service running as "multiple processes, containers, or
+  // pods behind a load balancer" (the reason RedisAccountLock exists), so a
+  // value of 0 (no trust proxy set) is almost certainly wrong in production
+  // and silently pools every real client's rate limit into one shared
+  // bucket keyed on the proxy's own address.
+  //
+  // Do NOT set this to a boolean-equivalent "trust everything" value — a
+  // hop count higher than the real topology lets a client spoof
+  // X-Forwarded-For and bypass rate limiting for their real IP.
+  // Changing this number is a deliberate, reviewed infra change, not a
+  // quick fix — see issue #90.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
 });
 
 export const config = envSchema.parse(process.env);

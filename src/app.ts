@@ -21,6 +21,14 @@ export function createApp(
 ) {
   const app = express();
 
+  // Must be set before any middleware that reads req.ip (rate limiter
+  // below, and anything else added later) — see issue #90. The hop count
+  // is configured via TRUST_PROXY_HOPS (config.ts) rather than hardcoded
+  // `true`, since trusting the entire X-Forwarded-For chain unconditionally
+  // lets a client spoof their apparent IP if there's more than one real
+  // proxy hop between them and this process.
+  app.set("trust proxy", config.TRUST_PROXY_HOPS);
+
   app.use(helmet());
   app.use(cors({ origin: config.CORS_ORIGIN.split(",") }));
   app.use(morgan("combined"));
