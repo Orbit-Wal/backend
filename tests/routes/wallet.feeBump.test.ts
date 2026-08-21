@@ -40,7 +40,7 @@ describe("POST /api/v1/wallet/send SEP-29 memo check (issue #6)", () => {
       .post("/api/v1/wallet/send")
       .set("Authorization", `Bearer ${token}`)
       .send({
-        sourceSecretKey: "SABC1234",
+        sourceSecretKey: "S".repeat(56),
         destinationPublicKey: "GBZH7QMRVYFLVYQRY6O5SOM3G7MSQF7MMUEM3WUOGRV26W3R3K5M7G8A",
         amount: "10",
       });
@@ -61,7 +61,7 @@ describe("POST /api/v1/wallet/fee-bump (issue #4)", () => {
       .post("/api/v1/wallet/fee-bump")
       .set("Authorization", `Bearer ${token}`)
       .send({
-        feeSecretKey: "SABC1234",
+        feeSecretKey: "S".repeat(56),
       })
       .expect(400);
   });
@@ -86,7 +86,7 @@ describe("POST /api/v1/wallet/fee-bump (issue #4)", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({
         transactionXdr: "some-xdr",
-        feeSecretKey: "SABC1234",
+        feeSecretKey: "S".repeat(56),
       })
       .expect(200);
 
@@ -102,7 +102,7 @@ describe("POST /api/v1/wallet/fee-bump (issue #4)", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({
         transactionXdr: "some-xdr",
-        feeSecretKey: "SABC1234",
+        feeSecretKey: "S".repeat(56),
         fee: "5000000",
       })
       .expect(200);

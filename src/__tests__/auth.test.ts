@@ -41,6 +41,7 @@ describe("POST /api/v1/auth/login", () => {
       .post("/api/v1/auth/login")
       .expect(401);
     expect(res.body.error).toBe("Unauthorized");
+    expect(res.body.code).toBe("API_KEY_UNAUTHORIZED");
   });
 
   it("rejects wrong API key", async () => {
@@ -49,6 +50,7 @@ describe("POST /api/v1/auth/login", () => {
       .set("x-api-key", "wrong-key")
       .expect(401);
     expect(res.body.error).toBe("Unauthorized");
+    expect(res.body.code).toBe("API_KEY_UNAUTHORIZED");
   });
 });
 
@@ -82,14 +84,19 @@ describe("POST /api/v1/auth/refresh", () => {
     await request(app)
       .post("/api/v1/auth/refresh")
       .send({ refreshToken })
-      .expect(401);
+      .expect(401)
+      .expect(({ body }) => {
+        expect(body.code).toBe("REFRESH_TOKEN_INVALID");
+      });
   });
 
   it("rejects empty body", async () => {
-    await request(app)
+    const res = await request(app)
       .post("/api/v1/auth/refresh")
       .send({})
       .expect(400);
+    expect(res.body.code).toBe("VALIDATION_ERROR");
+    expect(Array.isArray(res.body.details)).toBe(true);
   });
 });
 
@@ -114,9 +121,10 @@ describe("POST /api/v1/auth/logout", () => {
 
 describe("wallet routes with JWT", () => {
   it("rejects unauthenticated request", async () => {
-    await request(app)
+    const res = await request(app)
       .post("/api/v1/wallet/keypair")
       .expect(401);
+    expect(res.body.code).toBe("AUTH_HEADER_INVALID");
   });
 
   it("accepts authenticated request with valid Bearer token", async () => {

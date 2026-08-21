@@ -43,13 +43,20 @@ describe("errorHandler", () => {
     errorHandler(new Error("something else broke"), {} as never, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: "something else broke" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "something else broke",
+      code: "INTERNAL_ERROR",
+    });
   });
 
-  it("still maps 'Not Found' messages to 404 (no regression)", () => {
+  it("does not infer 404 from a generic error message", () => {
     const res = mockRes();
     errorHandler(new Error("Not Found"), {} as never, res, jest.fn());
 
-    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Not Found",
+      code: "INTERNAL_ERROR",
+    });
   });
 });
