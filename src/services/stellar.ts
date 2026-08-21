@@ -1,6 +1,7 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
-import { NotFoundError } from "../errors/appError";
+import { NotFoundError, ValidationError } from "../errors/appError";
 import { config } from "../config";
+import { validatePathAssets } from "../validation/stellarAsset";
 import { AccountLock, InProcessAccountLock } from "./locks/accountLock";
 import {
   MemoRequiredError,
@@ -269,7 +270,7 @@ export class StellarService {
 
         const sourceAccount = await this.getAccount(sourcePublicKey);
         const destinationAsset = parseAsset(destAsset);
-        const strictSendPath = (path ?? []).map(parseAsset);
+        const strictSendPath = parsePathAssets(path);
 
         const op = StellarSdk.Operation.pathPaymentStrictSend({
           destination: destinationPublicKey,
@@ -346,7 +347,7 @@ export class StellarService {
 
         const sourceAccount = await this.getAccount(sourcePublicKey);
         const destinationAsset = parseAsset(destAsset);
-        const strictReceivePath = (path ?? []).map(parseAsset);
+        const strictReceivePath = parsePathAssets(path);
 
         const op = StellarSdk.Operation.pathPaymentStrictReceive({
           destination: destinationPublicKey,
@@ -553,6 +554,25 @@ function parseAsset(assetStr: string | undefined): StellarSdk.Asset {
   if (!assetStr || assetStr === "XLM") return StellarSdk.Asset.native();
   const [code, issuer] = assetStr.split(":");
   return new StellarSdk.Asset(code, issuer);
+}
+
+function parsePathAssets(path: string[] | undefined): StellarSdk.Asset[] {
+  let pathAssets: string[];
+
+  try {
+    pathAssets = validatePathAssets(path);
+  } catch (error) {
+    throw new ValidationError([
+      {
+        location: "body",
+        message: error instanceof Error ? error.message : "Invalid path",
+        path: "path",
+        value: path,
+      },
+    ]);
+  }
+
+  return pathAssets.map((asset) => parseAsset(asset));
 }
 
 function isTxBadSeq(err: unknown): boolean {

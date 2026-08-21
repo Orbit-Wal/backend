@@ -5,6 +5,9 @@ function fakeAccountResponse(publicKey: string, sequence: string) {
   return new StellarSdk.Account(publicKey, sequence) as unknown as StellarSdk.Horizon.AccountResponse;
 }
 
+const destinationAsset = `USDC:${StellarSdk.Keypair.random().publicKey()}`;
+const pathAsset = `BTCN:${StellarSdk.Keypair.random().publicKey()}`;
+
 describe("StellarService path payments (issue #7)", () => {
   afterEach(() => jest.restoreAllMocks());
 
@@ -28,9 +31,9 @@ describe("StellarService path payments (issue #7)", () => {
         sourceSecretKey: StellarSdk.Keypair.random().secret(),
         destinationPublicKey: StellarSdk.Keypair.random().publicKey(),
         sendAmount: "10",
-        destAsset: "USDC:GA5ZSEJYB37JDD5GULFLMUPEB7HYSF7Y5Y2GYXHJZ6UMG3XZP3WR5Y54",
+        destAsset: destinationAsset,
         destMin: "9",
-        path: ["BTCN:GBVOLD3NUNT5RYPQK7FQG7Y3JSZQ5Z3Y7B6Y5JQF5HQYJ3R2LHVK6Y6U"],
+        path: [pathAsset],
       });
 
       expect(result.hash).toBe("path-hash-1");
@@ -94,7 +97,7 @@ describe("StellarService path payments (issue #7)", () => {
         sourceSecretKey: StellarSdk.Keypair.random().secret(),
         destinationPublicKey: StellarSdk.Keypair.random().publicKey(),
         destAmount: "5",
-        destAsset: "USDC:GA5ZSEJYB37JDD5GULFLMUPEB7HYSF7Y5Y2GYXHJZ6UMG3XZP3WR5Y54",
+        destAsset: destinationAsset,
         sendMax: "6",
       });
 
@@ -130,7 +133,7 @@ describe("StellarService path payments (issue #7)", () => {
         sourceSecretKey: StellarSdk.Keypair.random().secret(),
         destinationPublicKey: StellarSdk.Keypair.random().publicKey(),
         destAmount: "5",
-        destAsset: "USDC:GA5ZSEJYB37JDD5GULFLMUPEB7HYSF7Y5Y2GYXHJZ6UMG3XZP3WR5Y54",
+        destAsset: destinationAsset,
         sendMax: "6",
       });
 
