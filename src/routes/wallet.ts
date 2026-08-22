@@ -60,7 +60,13 @@ export function createWalletRouter(stellar: StellarService): Router {
     body("sendAmount").isDecimal({ decimal_digits: "0,7" }),
     body("destAsset").isString(),
     body("destMin").isDecimal({ decimal_digits: "0,7" }),
-    body("path").optional().isArray(),
+    body("path").optional().custom((path: unknown) => {
+      if (!Array.isArray(path)) {
+        throw new Error("Path must be an array");
+      }
+      validatePathAssets(path);
+      return true;
+    }),
     body("memo").optional().isString().isLength({ max: 28 }),
     async (req, res, next) => {
       try {
@@ -84,7 +90,13 @@ export function createWalletRouter(stellar: StellarService): Router {
     body("destAmount").isDecimal({ decimal_digits: "0,7" }),
     body("destAsset").isString(),
     body("sendMax").isDecimal({ decimal_digits: "0,7" }),
-    body("path").optional().isArray(),
+    body("path").optional().custom((path: unknown) => {
+      if (!Array.isArray(path)) {
+        throw new Error("Path must be an array");
+      }
+      validatePathAssets(path);
+      return true;
+    }),
     body("memo").optional().isString().isLength({ max: 28 }),
     async (req, res, next) => {
       try {
