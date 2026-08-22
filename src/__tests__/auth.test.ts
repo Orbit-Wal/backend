@@ -36,6 +36,19 @@ describe("POST /api/v1/auth/login", () => {
     expect(res.body.tokenType).toBe("Bearer");
   });
 
+  it("encodes the documented shared-identity 'sub' claim", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/login")
+      .set("x-api-key", "test-api-key")
+      .expect(200);
+
+    const accessToken = res.body.accessToken;
+    const payloadBase64 = accessToken.split(".")[1];
+    const payload = JSON.parse(Buffer.from(payloadBase64, "base64").toString("utf-8"));
+
+    expect(payload.sub).toBe("api-key-user");
+  });
+
   it("rejects missing API key", async () => {
     const res = await request(app)
       .post("/api/v1/auth/login")
