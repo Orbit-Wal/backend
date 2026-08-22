@@ -39,7 +39,7 @@ export function createContractRouter(globeWallet: GlobeWalletContract): Router {
 
   contractRouter.post(
     "/wallet/spend",
-    body("userSecretKey").isLength({ min: 56 }),
+    body("userSecretKey").isLength({ min: 56, max: 56 }),
     body("assetCode").isString().isLength({ min: 1, max: 12 }),
     body("amount").isNumeric(),
     async (req, res, next) => {

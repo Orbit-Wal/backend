@@ -24,7 +24,7 @@ export function createWalletRouter(stellar: StellarService): Router {
 
   walletRouter.post(
     "/send",
-    body("sourceSecretKey").isLength({ min: 56 }),
+    body("sourceSecretKey").isLength({ min: 56, max: 56 }),
     body("destinationPublicKey")
       .isLength({ min: 56, max: 56 })
       .bail()
@@ -47,7 +47,7 @@ export function createWalletRouter(stellar: StellarService): Router {
   walletRouter.post(
     "/fee-bump",
     body("transactionXdr").isString().notEmpty(),
-    body("feeSecretKey").isLength({ min: 56 }),
+    body("feeSecretKey").isLength({ min: 56, max: 56 }),
     body("fee").optional().isDecimal({ decimal_digits: "0,7" }),
     async (req, res, next) => {
       try {
@@ -62,7 +62,7 @@ export function createWalletRouter(stellar: StellarService): Router {
 
   walletRouter.post(
     "/path-payment-strict-send",
-    body("sourceSecretKey").isLength({ min: 56 }),
+    body("sourceSecretKey").isLength({ min: 56, max: 56 }),
     body("destinationPublicKey")
       .isLength({ min: 56, max: 56 })
       .bail()
@@ -86,7 +86,7 @@ export function createWalletRouter(stellar: StellarService): Router {
 
   walletRouter.post(
     "/path-payment-strict-receive",
-    body("sourceSecretKey").isLength({ min: 56 }),
+    body("sourceSecretKey").isLength({ min: 56, max: 56 }),
     body("destinationPublicKey")
       .isLength({ min: 56, max: 56 })
       .bail()
@@ -154,7 +154,7 @@ export function createWalletRouter(stellar: StellarService): Router {
 
   walletRouter.post(
     "/partial-transaction",
-    body("sourceSecretKey").isLength({ min: 56 }),
+    body("sourceSecretKey").isLength({ min: 56, max: 56 }),
     body("destinationPublicKey")
       .isLength({ min: 56, max: 56 })
       .bail()
@@ -178,6 +178,7 @@ export function createWalletRouter(stellar: StellarService): Router {
     "/submit-multisig",
     body("xdr").isString(),
     body("signerSecretKeys").isArray({ min: 1 }),
+    body("signerSecretKeys.*").isLength({ min: 56, max: 56 }),
     async (req, res, next) => {
       try {
         assertValidRequest(req);
