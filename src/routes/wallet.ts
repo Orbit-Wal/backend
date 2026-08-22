@@ -4,18 +4,7 @@ import { jwtAuth } from "../middleware/jwtAuth";
 import { assertValidRequest } from "../middleware/requestValidation";
 import { logKeypairIssuance } from "../services/auditLog";
 import { StellarService } from "../services/stellar";
-
-function isGAddress(value: string): boolean {
-  if (typeof value !== "string") {
-    return false;
-  }
-  return value.startsWith("G") && value.length === 56;
-}
-
-const destinationMessage =
-  "Invalid destination: only G... addresses are supported. Muxed (M...) addresses are not accepted; use the underlying G... address instead.";
-const publicKeyMessage =
-  "Invalid public key: only G... addresses are supported. Muxed (M...) addresses are not accepted; use the underlying G... address instead.";
+import { isGAddress, publicKeyMessage, destinationMessage } from "../utils/stellarAddress";
 
 export function createWalletRouter(stellar: StellarService): Router {
   const walletRouter = Router();
