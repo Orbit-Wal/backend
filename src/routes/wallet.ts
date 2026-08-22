@@ -4,19 +4,7 @@ import { jwtAuth } from "../middleware/jwtAuth";
 import { assertValidRequest } from "../middleware/requestValidation";
 import { logKeypairIssuance } from "../services/auditLog";
 import { StellarService } from "../services/stellar";
-import { validatePathAssets } from "../validation/stellarAsset";
-
-function isGAddress(value: string): boolean {
-  if (typeof value !== "string") {
-    return false;
-  }
-  return value.startsWith("G") && value.length === 56;
-}
-
-const destinationMessage =
-  "Invalid destination: only G... addresses are supported. Muxed (M...) addresses are not accepted; use the underlying G... address instead.";
-const publicKeyMessage =
-  "Invalid public key: only G... addresses are supported. Muxed (M...) addresses are not accepted; use the underlying G... address instead.";
+import { isGAddress, publicKeyMessage, destinationMessage } from "../utils/stellarAddress";
 
 export function createWalletRouter(stellar: StellarService): Router {
   const walletRouter = Router();
@@ -25,7 +13,7 @@ export function createWalletRouter(stellar: StellarService): Router {
 
   walletRouter.post(
     "/send",
-    body("sourceSecretKey").isLength({ min: 56 }),
+    body("sourceSecretKey").isLength({ min: 56, max: 56 }),
     body("destinationPublicKey")
       .isLength({ min: 56, max: 56 })
       .bail()
@@ -48,7 +36,7 @@ export function createWalletRouter(stellar: StellarService): Router {
   walletRouter.post(
     "/fee-bump",
     body("transactionXdr").isString().notEmpty(),
-    body("feeSecretKey").isLength({ min: 56 }),
+    body("feeSecretKey").isLength({ min: 56, max: 56 }),
     body("fee").optional().isDecimal({ decimal_digits: "0,7" }),
     async (req, res, next) => {
       try {
@@ -63,7 +51,7 @@ export function createWalletRouter(stellar: StellarService): Router {
 
   walletRouter.post(
     "/path-payment-strict-send",
-    body("sourceSecretKey").isLength({ min: 56 }),
+    body("sourceSecretKey").isLength({ min: 56, max: 56 }),
     body("destinationPublicKey")
       .isLength({ min: 56, max: 56 })
       .bail()
@@ -93,7 +81,7 @@ export function createWalletRouter(stellar: StellarService): Router {
 
   walletRouter.post(
     "/path-payment-strict-receive",
-    body("sourceSecretKey").isLength({ min: 56 }),
+    body("sourceSecretKey").isLength({ min: 56, max: 56 }),
     body("destinationPublicKey")
       .isLength({ min: 56, max: 56 })
       .bail()
@@ -167,7 +155,7 @@ export function createWalletRouter(stellar: StellarService): Router {
 
   walletRouter.post(
     "/partial-transaction",
-    body("sourceSecretKey").isLength({ min: 56 }),
+    body("sourceSecretKey").isLength({ min: 56, max: 56 }),
     body("destinationPublicKey")
       .isLength({ min: 56, max: 56 })
       .bail()
@@ -191,6 +179,7 @@ export function createWalletRouter(stellar: StellarService): Router {
     "/submit-multisig",
     body("xdr").isString(),
     body("signerSecretKeys").isArray({ min: 1 }),
+    body("signerSecretKeys.*").isLength({ min: 56, max: 56 }),
     async (req, res, next) => {
       try {
         assertValidRequest(req);

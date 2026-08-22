@@ -1,17 +1,8 @@
 import { Router } from "express";
-import { param } from "express-validator";
+import { param, query } from "express-validator";
 import { assertValidRequest } from "../middleware/requestValidation";
 import { StellarService } from "../services/stellar";
-
-function isGAddress(value: string): boolean {
-  if (typeof value !== "string") {
-    return false;
-  }
-  return value.startsWith("G") && value.length === 56;
-}
-
-const publicKeyMessage =
-  "Invalid public key: only G... addresses are supported. Muxed (M...) addresses are not accepted; use the underlying G... address instead.";
+import { isGAddress, publicKeyMessage } from "../utils/stellarAddress";
 
 export function createAccountRouter(stellar: StellarService): Router {
   const accountRouter = Router();
@@ -47,10 +38,15 @@ export function createAccountRouter(stellar: StellarService): Router {
   accountRouter.get(
     "/:publicKey/transactions",
     param("publicKey").custom(isGAddress).withMessage(publicKeyMessage),
+    query("limit")
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage("limit must be an integer between 1 and 100")
+      .toInt(),
     async (req, res, next) => {
       try {
         assertValidRequest(req);
-        const limit = Math.min(Number(req.query.limit) || 20, 100);
+        const limit = (req.query.limit as number | undefined) ?? 20;
         const cursor = req.query.cursor as string | undefined;
         const result = await stellar.getTransactions(req.params.publicKey, { limit, cursor });
         res.json({ 
