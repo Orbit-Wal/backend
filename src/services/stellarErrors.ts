@@ -16,7 +16,7 @@ export class MemoRequiredError extends AppError {
     super(message, {
       code: "MEMO_REQUIRED",
       retryable: false,
-      status: 422,
+      status: 400,
     });
   }
 }

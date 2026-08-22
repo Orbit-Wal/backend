@@ -1,6 +1,6 @@
 import { Response } from "express";
 import { errorHandler } from "../../src/middleware/errorHandler";
-import { LockAcquisitionError, SequenceConflictError } from "../../src/services/stellarErrors";
+import { LockAcquisitionError, SequenceConflictError, MemoRequiredError } from "../../src/services/stellarErrors";
 
 function mockRes(): Response {
   const res: Partial<Response> = {};
@@ -35,6 +35,20 @@ describe("errorHandler", () => {
       error: "timed out waiting for lock",
       code: "LOCK_TIMEOUT",
       retryable: true,
+    });
+  });
+
+  it("maps MemoRequiredError to 400 with code + retryable", () => {
+    const res = mockRes();
+    const err = new MemoRequiredError("destination requires a memo");
+
+    errorHandler(err, {} as never, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "destination requires a memo",
+      code: "MEMO_REQUIRED",
+      retryable: false,
     });
   });
 
