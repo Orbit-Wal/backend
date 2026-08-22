@@ -3,16 +3,7 @@ import { body, param } from "express-validator";
 import { assertValidRequest } from "../middleware/requestValidation";
 import { GlobeWalletContract } from "../services/contracts/globeWallet";
 import { jwtAuth } from "../middleware/jwtAuth";
-
-function isGAddress(value: string): boolean {
-  if (typeof value !== "string") {
-    return false;
-  }
-  return value.startsWith("G") && value.length === 56;
-}
-
-const publicKeyMessage =
-  "Invalid public key: only G... addresses are supported. Muxed (M...) addresses are not accepted; use the underlying G... address instead.";
+import { isGAddress, publicKeyMessage } from "../utils/stellarAddress";
 
 export function createContractRouter(globeWallet: GlobeWalletContract): Router {
   const contractRouter = Router();
