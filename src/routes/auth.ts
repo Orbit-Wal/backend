@@ -16,6 +16,10 @@ authRouter.post(
   "/login",
   apiKeyAuth,
   (_req, res) => {
+    // We currently use a single shared API key model.
+    // This fixed 'sub' explicitly documents that all traffic shares
+    // a single identity, rather than implying per-caller signal.
+    // See #88 and this identity decision for context.
     const sub = "api-key-user";
     const accessToken = generateAccessToken(sub);
     const refreshToken = generateRefreshToken(sub);
