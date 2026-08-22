@@ -1,10 +1,47 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { body, param } from "express-validator";
 import { jwtAuth } from "../middleware/jwtAuth";
 import { assertValidRequest } from "../middleware/requestValidation";
 import { logKeypairIssuance } from "../services/auditLog";
 import { StellarService } from "../services/stellar";
 import { isGAddress, publicKeyMessage, destinationMessage } from "../utils/stellarAddress";
+import { validatePathAssets } from "../validation/stellarAsset";
+import * as StellarSdk from "@stellar/stellar-sdk";
+import { getCachedResult, cacheResult } from "../services/idempotency";
+
+async function handleIdempotentRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+  secretKey: string | undefined,
+  execute: () => Promise<{ hash: string; successful: boolean }>
+) {
+  try {
+    assertValidRequest(req);
+    const idempotencyKey = req.body.idempotencyKey;
+    let sourcePublicKey: string | undefined;
+
+    if (idempotencyKey && secretKey) {
+      const keypair = StellarSdk.Keypair.fromSecret(secretKey);
+      sourcePublicKey = keypair.publicKey();
+      const cached = await getCachedResult(sourcePublicKey, idempotencyKey);
+      if (cached) {
+        res.json({ hash: cached.hash, successful: cached.successful });
+        return;
+      }
+    }
+
+    const result = await execute();
+
+    if (idempotencyKey && sourcePublicKey) {
+      await cacheResult(sourcePublicKey, idempotencyKey, result.hash, result.successful);
+    }
+
+    res.json({ hash: result.hash, successful: result.successful });
+  } catch (err) {
+    next(err);
+  }
+}
 
 export function createWalletRouter(stellar: StellarService): Router {
   const walletRouter = Router();
@@ -22,15 +59,9 @@ export function createWalletRouter(stellar: StellarService): Router {
     body("amount").isDecimal({ decimal_digits: "0,7" }),
     body("asset").optional().isString(),
     body("memo").optional().isString().isLength({ max: 28 }),
-    async (req, res, next) => {
-      try {
-        assertValidRequest(req);
-        const result = await stellar.sendPayment(req.body);
-        res.json({ hash: result.hash, successful: result.successful });
-      } catch (err) {
-        next(err);
-      }
-    }
+    body("idempotencyKey").optional().isString().isLength({ max: 255 }),
+    (req, res, next) =>
+      handleIdempotentRequest(req, res, next, req.body.sourceSecretKey, () => stellar.sendPayment(req.body))
   );
 
   walletRouter.post(
@@ -38,15 +69,9 @@ export function createWalletRouter(stellar: StellarService): Router {
     body("transactionXdr").isString().notEmpty(),
     body("feeSecretKey").isLength({ min: 56, max: 56 }),
     body("fee").optional().isDecimal({ decimal_digits: "0,7" }),
-    async (req, res, next) => {
-      try {
-        assertValidRequest(req);
-        const result = await stellar.feeBumpTransaction(req.body);
-        res.json({ hash: result.hash, successful: result.successful });
-      } catch (err) {
-        next(err);
-      }
-    }
+    body("idempotencyKey").optional().isString().isLength({ max: 255 }),
+    (req, res, next) =>
+      handleIdempotentRequest(req, res, next, req.body.feeSecretKey, () => stellar.feeBumpTransaction(req.body))
   );
 
   walletRouter.post(
@@ -68,15 +93,9 @@ export function createWalletRouter(stellar: StellarService): Router {
       return true;
     }),
     body("memo").optional().isString().isLength({ max: 28 }),
-    async (req, res, next) => {
-      try {
-        assertValidRequest(req);
-        const result = await stellar.pathPaymentStrictSend(req.body);
-        res.json({ hash: result.hash, successful: result.successful });
-      } catch (err) {
-        next(err);
-      }
-    }
+    body("idempotencyKey").optional().isString().isLength({ max: 255 }),
+    (req, res, next) =>
+      handleIdempotentRequest(req, res, next, req.body.sourceSecretKey, () => stellar.pathPaymentStrictSend(req.body))
   );
 
   walletRouter.post(
@@ -98,15 +117,9 @@ export function createWalletRouter(stellar: StellarService): Router {
       return true;
     }),
     body("memo").optional().isString().isLength({ max: 28 }),
-    async (req, res, next) => {
-      try {
-        assertValidRequest(req);
-        const result = await stellar.pathPaymentStrictReceive(req.body);
-        res.json({ hash: result.hash, successful: result.successful });
-      } catch (err) {
-        next(err);
-      }
-    }
+    body("idempotencyKey").optional().isString().isLength({ max: 255 }),
+    (req, res, next) =>
+      handleIdempotentRequest(req, res, next, req.body.sourceSecretKey, () => stellar.pathPaymentStrictReceive(req.body))
   );
 
   walletRouter.post(
@@ -180,14 +193,10 @@ export function createWalletRouter(stellar: StellarService): Router {
     body("xdr").isString(),
     body("signerSecretKeys").isArray({ min: 1 }),
     body("signerSecretKeys.*").isLength({ min: 56, max: 56 }),
-    async (req, res, next) => {
-      try {
-        assertValidRequest(req);
-        const result = await stellar.submitWithAdditionalSignatures(req.body);
-        res.json({ hash: result.hash, successful: result.successful });
-      } catch (err) {
-        next(err);
-      }
+    body("idempotencyKey").optional().isString().isLength({ max: 255 }),
+    (req, res, next) => {
+      const firstSigner = Array.isArray(req.body.signerSecretKeys) ? req.body.signerSecretKeys[0] : undefined;
+      handleIdempotentRequest(req, res, next, firstSigner, () => stellar.submitWithAdditionalSignatures(req.body));
     }
   );
 

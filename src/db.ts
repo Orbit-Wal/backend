@@ -12,4 +12,16 @@ export async function ensureAuditTable() {
       public_key VARCHAR(56) NOT NULL
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS idempotency_keys (
+      id BIGSERIAL PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      source_public_key VARCHAR(56) NOT NULL,
+      idempotency_key VARCHAR(255) NOT NULL,
+      result_hash VARCHAR(64) NOT NULL,
+      result_successful BOOLEAN NOT NULL,
+      UNIQUE (source_public_key, idempotency_key)
+    )
+  `);
 }
