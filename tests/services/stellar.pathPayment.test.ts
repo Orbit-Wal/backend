@@ -140,5 +140,57 @@ describe("StellarService path payments (issue #7)", () => {
       expect(result.hash).toBe("retry-ok");
       expect(submitCalls).toBe(2);
     });
+  describe("findStrictSendPaths", () => {
+    it("falls back to destination asset list when destinationPublicKey is omitted", async () => {
+      const mockCall = jest.fn().mockResolvedValue({ records: [] });
+      const mockLimit = jest.fn().mockReturnValue({ call: mockCall });
+      const mockStrictSendPaths = jest.fn().mockReturnValue({ limit: mockLimit });
+
+      jest.spyOn(StellarSdk.Horizon.Server.prototype, "strictSendPaths").mockImplementation(mockStrictSendPaths as any);
+
+      const stellar = new StellarService();
+      await stellar.findStrictSendPaths({
+        sourceAmount: "10",
+        destinationAsset: destinationAsset,
+        // destinationPublicKey omitted
+      });
+
+      expect(mockStrictSendPaths).toHaveBeenCalledWith(
+        expect.any(StellarSdk.Asset), // srcAsset
+        "10", // sourceAmount
+        expect.arrayContaining([expect.any(StellarSdk.Asset)]) // destination
+      );
+      
+      const args = mockStrictSendPaths.mock.calls[0];
+      expect(Array.isArray(args[2])).toBe(true);
+      expect(args[2][0].code).toBe("USDC");
+    });
+  });
+
+  describe("findStrictReceivePaths", () => {
+    it("falls back to source asset list when destinationPublicKey is omitted", async () => {
+      const mockCall = jest.fn().mockResolvedValue({ records: [] });
+      const mockLimit = jest.fn().mockReturnValue({ call: mockCall });
+      const mockStrictReceivePaths = jest.fn().mockReturnValue({ limit: mockLimit });
+
+      jest.spyOn(StellarSdk.Horizon.Server.prototype, "strictReceivePaths").mockImplementation(mockStrictReceivePaths as any);
+
+      const stellar = new StellarService();
+      await stellar.findStrictReceivePaths({
+        destinationAmount: "10",
+        destinationAsset: destinationAsset,
+        // destinationPublicKey omitted
+      });
+
+      expect(mockStrictReceivePaths).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.any(StellarSdk.Asset)]), // source
+        expect.any(StellarSdk.Asset), // destAst
+        "10" // destinationAmount
+      );
+
+      const args = mockStrictReceivePaths.mock.calls[0];
+      expect(Array.isArray(args[0])).toBe(true);
+      expect(args[0][0].isNative()).toBe(true);
+    });
   });
 });
