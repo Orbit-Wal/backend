@@ -23,7 +23,16 @@ const envSchema = z.object({
   SOROBAN_NETWORK_PASSPHRASE: z.string().min(1).default("Test SDF Network ; September 2015"),
   // Deployed globe-wallet contract ID (C...). Optional so the API can still
   // boot without it; /api/v1/contract/wallet/* routes respond 503 until set.
-  GLOBE_WALLET_CONTRACT_ID: z.string().optional(),
+  // When present, must be a valid Soroban contract StrKey: the letter C
+  // followed by exactly 55 uppercase alphanumeric characters (56 chars total),
+  // mirroring the isGAddress shape-checks used for G.../S... keys elsewhere.
+  GLOBE_WALLET_CONTRACT_ID: z
+    .string()
+    .regex(
+      /^C[A-Z0-9]{55}$/,
+      "must be a valid Soroban contract StrKey (C followed by 55 uppercase alphanumeric characters)"
+    )
+    .optional(),
 
   // Number of trusted reverse-proxy hops in front of this service, passed
   // straight to Express's `trust proxy` setting (see src/app.ts). This
