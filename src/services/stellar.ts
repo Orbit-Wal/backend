@@ -144,6 +144,53 @@ export class StellarService {
   // failure that a fresh sequence number cannot fix.
   // ---------------------------------------------------------------------------
 
+  private async submitWithSeqRetry(
+    sourcePublicKey: string,
+    sourceKeypair: StellarSdk.Keypair,
+    methodName: string,
+    buildTransactionBuilder: (account: StellarSdk.Account) => StellarSdk.TransactionBuilder
+  ) {
+    return this.accountLock.withLock(sourcePublicKey, async () => {
+      let lastAttemptError: unknown;
+      for (let attempt = 0; attempt <= MAX_SEQ_RETRIES; attempt++) {
+        if (attempt > 0) {
+          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          const prefix = methodName === "sendPayment" ? "" : `${methodName} `;
+          const suffix = methodName === "sendPayment" ? " before resubmit" : "";
+          console.log(
+            `[stellar] ${prefix}tx_bad_seq retry ${attempt}/${MAX_SEQ_RETRIES} ` +
+              `for ${sourcePublicKey} — waiting ${delay}ms${suffix}`
+          );
+          await new Promise((r) => setTimeout(r, delay));
+        }
+
+        const sourceAccount = await this.getAccount(sourcePublicKey);
+        const builder = buildTransactionBuilder(sourceAccount);
+        const tx = builder.build();
+        tx.sign(sourceKeypair);
+
+        try {
+          const result = await this.server.submitTransaction(tx);
+          if (attempt > 0) {
+            const prefix = methodName === "sendPayment" ? "" : `${methodName} `;
+            console.log(
+              `[stellar] ${prefix}tx_bad_seq retry ${attempt}/${MAX_SEQ_RETRIES} ` +
+                `succeeded for ${sourcePublicKey}`
+            );
+          }
+          return result;
+        } catch (err) {
+          if (isTxBadSeq(err) && attempt < MAX_SEQ_RETRIES) {
+            lastAttemptError = err;
+            continue;
+          }
+          throw translateSubmissionError(err, sourcePublicKey);
+        }
+      }
+      throw translateSubmissionError(lastAttemptError, sourcePublicKey);
+    });
+  }
+
   async sendPayment(params: {
     sourceSecretKey: string;
     destinationPublicKey: string;
@@ -175,19 +222,11 @@ export class StellarService {
     // previous one instead of a stale read. See docs/concurrency.md for
     // why this only holds within a single process and what closes the gap
     // across multiple instances.
-    return this.accountLock.withLock(sourcePublicKey, async () => {
-      let lastAttemptError: unknown;
-      for (let attempt = 0; attempt <= MAX_SEQ_RETRIES; attempt++) {
-        if (attempt > 0) {
-          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
-          console.log(
-            `[stellar] tx_bad_seq retry ${attempt}/${MAX_SEQ_RETRIES} ` +
-              `for ${sourcePublicKey} — waiting ${delay}ms before resubmit`
-          );
-          await new Promise((r) => setTimeout(r, delay));
-        }
-
-        const sourceAccount = await this.getAccount(sourcePublicKey);
+    return this.submitWithSeqRetry(
+      sourcePublicKey,
+      sourceKeypair,
+      "sendPayment",
+      (sourceAccount) => {
         const stellarAsset =
           !asset || asset === "XLM"
             ? StellarSdk.Asset.native()
@@ -205,30 +244,9 @@ export class StellarService {
           )
           .setTimeout(30);
         if (memo) builder.addMemo(StellarSdk.Memo.text(memo));
-        const tx = builder.build();
-        tx.sign(sourceKeypair);
-
-        try {
-          const result = await this.server.submitTransaction(tx);
-          if (attempt > 0) {
-            console.log(
-              `[stellar] tx_bad_seq retry ${attempt}/${MAX_SEQ_RETRIES} ` +
-                `succeeded for ${sourcePublicKey}`
-            );
-          }
-          return result;
-        } catch (err) {
-          if (isTxBadSeq(err) && attempt < MAX_SEQ_RETRIES) {
-            lastAttemptError = err;
-            continue;
-          }
-          throw translateSubmissionError(err, sourcePublicKey);
-        }
+        return builder;
       }
-      // All retries exhausted — throw the last SequenceConflictError so the
-      // caller sees a clear, actionable error rather than an undefined result.
-      throw translateSubmissionError(lastAttemptError, sourcePublicKey);
-    });
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -256,19 +274,11 @@ export class StellarService {
     const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecretKey);
     const sourcePublicKey = sourceKeypair.publicKey();
 
-    return this.accountLock.withLock(sourcePublicKey, async () => {
-      let lastAttemptError: unknown;
-      for (let attempt = 0; attempt <= MAX_SEQ_RETRIES; attempt++) {
-        if (attempt > 0) {
-          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
-          console.log(
-            `[stellar] pathPaymentStrictSend tx_bad_seq retry ${attempt}/${MAX_SEQ_RETRIES} ` +
-              `for ${sourcePublicKey} — waiting ${delay}ms`
-          );
-          await new Promise((r) => setTimeout(r, delay));
-        }
-
-        const sourceAccount = await this.getAccount(sourcePublicKey);
+    return this.submitWithSeqRetry(
+      sourcePublicKey,
+      sourceKeypair,
+      "pathPaymentStrictSend",
+      (sourceAccount) => {
         const destinationAsset = parseAsset(destAsset);
         const strictSendPath = parsePathAssets(path);
 
@@ -287,29 +297,9 @@ export class StellarService {
         }).addOperation(op).setTimeout(30);
 
         if (memo) builder.addMemo(StellarSdk.Memo.text(memo));
-
-        const tx = builder.build();
-        tx.sign(sourceKeypair);
-
-        try {
-          const result = await this.server.submitTransaction(tx);
-          if (attempt > 0) {
-            console.log(
-              `[stellar] pathPaymentStrictSend tx_bad_seq retry ${attempt}/${MAX_SEQ_RETRIES} ` +
-                `succeeded for ${sourcePublicKey}`
-            );
-          }
-          return result;
-        } catch (err) {
-          if (isTxBadSeq(err) && attempt < MAX_SEQ_RETRIES) {
-            lastAttemptError = err;
-            continue;
-          }
-          throw translateSubmissionError(err, sourcePublicKey);
-        }
+        return builder;
       }
-      throw translateSubmissionError(lastAttemptError, sourcePublicKey);
-    });
+    );
   }
 
   async pathPaymentStrictReceive(params: {
@@ -333,19 +323,11 @@ export class StellarService {
     const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecretKey);
     const sourcePublicKey = sourceKeypair.publicKey();
 
-    return this.accountLock.withLock(sourcePublicKey, async () => {
-      let lastAttemptError: unknown;
-      for (let attempt = 0; attempt <= MAX_SEQ_RETRIES; attempt++) {
-        if (attempt > 0) {
-          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
-          console.log(
-            `[stellar] pathPaymentStrictReceive tx_bad_seq retry ${attempt}/${MAX_SEQ_RETRIES} ` +
-              `for ${sourcePublicKey} — waiting ${delay}ms`
-          );
-          await new Promise((r) => setTimeout(r, delay));
-        }
-
-        const sourceAccount = await this.getAccount(sourcePublicKey);
+    return this.submitWithSeqRetry(
+      sourcePublicKey,
+      sourceKeypair,
+      "pathPaymentStrictReceive",
+      (sourceAccount) => {
         const destinationAsset = parseAsset(destAsset);
         const strictReceivePath = parsePathAssets(path);
 
@@ -364,29 +346,9 @@ export class StellarService {
         }).addOperation(op).setTimeout(30);
 
         if (memo) builder.addMemo(StellarSdk.Memo.text(memo));
-
-        const tx = builder.build();
-        tx.sign(sourceKeypair);
-
-        try {
-          const result = await this.server.submitTransaction(tx);
-          if (attempt > 0) {
-            console.log(
-              `[stellar] pathPaymentStrictReceive tx_bad_seq retry ${attempt}/${MAX_SEQ_RETRIES} ` +
-                `succeeded for ${sourcePublicKey}`
-            );
-          }
-          return result;
-        } catch (err) {
-          if (isTxBadSeq(err) && attempt < MAX_SEQ_RETRIES) {
-            lastAttemptError = err;
-            continue;
-          }
-          throw translateSubmissionError(err, sourcePublicKey);
-        }
+        return builder;
       }
-      throw translateSubmissionError(lastAttemptError, sourcePublicKey);
-    });
+    );
   }
 
   // ---------------------------------------------------------------------------
