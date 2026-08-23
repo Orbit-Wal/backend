@@ -9,6 +9,6 @@ priceRouter.get("/:asset", async (req, res) => {
     asset: asset.toUpperCase(),
     price_usd: null,
     source: "not_configured",
-    message: "Connect a price oracle in src/services/price.ts",
+    message: "Connect a price oracle in src/routes/price.ts",
   });
 });

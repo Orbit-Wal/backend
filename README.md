@@ -88,7 +88,10 @@ design rationale and a real testnet run.
 ### Price
 
 ```
-GET /api/v1/price/:asset  → USD price (configure oracle in src/services/price.ts)
+GET /api/v1/price/:asset  → placeholder only; always returns { price_usd: null,
+                             source: "not_configured" } until a real oracle
+                             (CoinGecko / Stellar DEX orderbook) is wired up
+                             in src/routes/price.ts
 ```
 
 ## Project Structure
