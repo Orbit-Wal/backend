@@ -73,10 +73,13 @@ POST /api/v1/contract/wallet/spend              → { hash, ledger, successful }
 requires a Bearer token (same as `/wallet/send`) and body:
 ```json
 {
+
   "userSecretKey": "S...",
   "assetCode": "XLM",
   "amount": "1000000"
+
 }
+
 ```
 Requires `GLOBE_WALLET_CONTRACT_ID` — see `.env.example` and
 [`docs/soroban-integration.md`](docs/soroban-integration.md) for the
@@ -94,13 +97,13 @@ GET /api/v1/price/:asset  → USD price (configure oracle in src/services/price.
 src/
   app.ts           # Express app factory
   index.ts         # Entry point
+  config.ts        # Environment config validation (Zod)
+  db.ts            # Postgres pool + audit table bootstrap
   routes/          # Route handlers
   middleware/       # Auth, error handling, rate limiting
-  services/        # Stellar SDK, price oracle, DB
-  models/          # Database models
-  utils/           # Helpers
+  services/        # Stellar SDK, Soroban RPC, contract clients, locks
+  utils/           # Helpers (JWT)
   types/           # Shared TypeScript types
-  config/          # Environment config validation
 tests/             # Jest unit/integration tests
 docs/              # Design docs (e.g. concurrency.md)
 ```
