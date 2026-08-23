@@ -73,10 +73,13 @@ POST /api/v1/contract/wallet/spend              → { hash, ledger, successful }
 requires a Bearer token (same as `/wallet/send`) and body:
 ```json
 {
+
   "userSecretKey": "S...",
   "assetCode": "XLM",
   "amount": "1000000"
+
 }
+
 ```
 Requires `GLOBE_WALLET_CONTRACT_ID` — see `.env.example` and
 [`docs/soroban-integration.md`](docs/soroban-integration.md) for the
