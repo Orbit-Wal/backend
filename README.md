@@ -94,13 +94,13 @@ GET /api/v1/price/:asset  → USD price (configure oracle in src/services/price.
 src/
   app.ts           # Express app factory
   index.ts         # Entry point
+  config.ts        # Environment config validation (Zod)
+  db.ts            # Postgres pool + audit table bootstrap
   routes/          # Route handlers
   middleware/       # Auth, error handling, rate limiting
-  services/        # Stellar SDK, price oracle, DB
-  models/          # Database models
-  utils/           # Helpers
+  services/        # Stellar SDK, Soroban RPC, contract clients, locks
+  utils/           # Helpers (JWT)
   types/           # Shared TypeScript types
-  config/          # Environment config validation
 tests/             # Jest unit/integration tests
 docs/              # Design docs (e.g. concurrency.md)
 ```
