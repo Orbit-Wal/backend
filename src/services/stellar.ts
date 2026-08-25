@@ -468,6 +468,12 @@ export class StellarService {
     }
   }
 
+  /**
+   * Merges additional signer signatures into a partially-signed transaction
+   * XDR and submits the result to Horizon.  Callers provide the base64 XDR
+   * returned by `buildPartialTransaction` plus one or more additional
+   * secret keys whose signatures satisfy the remaining threshold weight.
+   */
   async submitWithAdditionalSignatures(params: {
     xdr: string;
     signerSecretKeys: string[];
