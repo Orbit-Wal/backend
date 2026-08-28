@@ -140,6 +140,15 @@ describe("StellarService path payments (issue #7)", () => {
       expect(result.hash).toBe("retry-ok");
       expect(submitCalls).toBe(2);
     });
+  });
+
+  // Issue #81: findStrictSendPaths/findStrictReceivePaths must be tested
+  // against the real SDK method boundary — Horizon.Server#strictSendPaths /
+  // #strictReceivePaths — not a stand-in like `.paths()` (which doesn't
+  // exist on Horizon.Server at all, see issue #70). Mocking the prototype
+  // method by its real name below means a test suite here can only stay
+  // green if the implementation calls the real method; calling the wrong
+  // one would leave these spies unhit and the calls would throw.
   describe("findStrictSendPaths", () => {
     it("falls back to destination asset list when destinationPublicKey is omitted", async () => {
       const mockCall = jest.fn().mockResolvedValue({ records: [] });
