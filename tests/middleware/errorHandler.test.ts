@@ -1,6 +1,11 @@
 import { Response } from "express";
 import { errorHandler } from "../../src/middleware/errorHandler";
 import { LockAcquisitionError, SequenceConflictError, MemoRequiredError } from "../../src/services/stellarErrors";
+import {
+  SorobanNotConfiguredError,
+  SorobanSimulationError,
+  SorobanTransactionError,
+} from "../../src/services/sorobanErrors";
 
 function mockRes(): Response {
   const res: Partial<Response> = {};
@@ -49,6 +54,65 @@ describe("errorHandler", () => {
       error: "destination requires a memo",
       code: "MEMO_REQUIRED",
       retryable: false,
+    });
+  });
+
+  it("maps SorobanNotConfiguredError to 503 with code + retryable", () => {
+    const res = mockRes();
+    const err = new SorobanNotConfiguredError();
+
+    errorHandler(err, {} as never, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Soroban contract integration is not configured (missing contract ID)",
+      code: "SOROBAN_NOT_CONFIGURED",
+      retryable: false,
+    });
+  });
+
+  it("maps SorobanSimulationError to 422 with code + retryable", () => {
+    const res = mockRes();
+    const err = new SorobanSimulationError("simulation failed: host invocation error");
+
+    errorHandler(err, {} as never, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "simulation failed: host invocation error",
+      code: "SOROBAN_SIMULATION_FAILED",
+      retryable: false,
+    });
+  });
+
+  it("maps SorobanSimulationError's optional raw diagnostic into details", () => {
+    const res = mockRes();
+    const err = new SorobanSimulationError("simulation failed", "raw diagnostic event dump");
+
+    errorHandler(err, {} as never, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "simulation failed",
+      code: "SOROBAN_SIMULATION_FAILED",
+      retryable: false,
+      details: { raw: "raw diagnostic event dump" },
+    });
+  });
+
+  it("maps SorobanTransactionError to 502 with code, retryable, and hash", () => {
+    const res = mockRes();
+    const err = new SorobanTransactionError("transaction failed on-chain", "soroban-tx-hash-123");
+
+    errorHandler(err, {} as never, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(502);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "transaction failed on-chain",
+      code: "SOROBAN_TX_FAILED",
+      retryable: false,
+      details: { hash: "soroban-tx-hash-123" },
+      hash: "soroban-tx-hash-123",
     });
   });
 
