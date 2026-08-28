@@ -354,6 +354,11 @@ export class StellarService {
   // ---------------------------------------------------------------------------
   //  Issue #7 helper – Horizon path-finding
   // ---------------------------------------------------------------------------
+  // Uses the flat `strictSendPaths(sourceAsset, sourceAmount, destination)` /
+  // `strictReceivePaths(source, destinationAsset, destinationAmount)` methods
+  // on `Horizon.Server` (issue #70) — there is no chained `.paths().strictSend()`
+  // builder in @stellar/stellar-sdk.
+  // ---------------------------------------------------------------------------
 
   async findStrictSendPaths(params: {
     sourceAmount: string;
@@ -438,6 +443,20 @@ export class StellarService {
     });
   }
 
+  /**
+   * Wraps a previously signed transaction in a fee-bump envelope (CAP-15).
+   * The inner transaction's signatures are untouched — only the outer
+   * fee-bump envelope is signed with the fee source's key. This lets callers
+   * rescue a stuck transaction whose base fee was too low for network
+   * congestion, without re-signing the inner transaction or changing the
+   * sequence number.
+   *
+   * Built via `StellarSdk.TransactionBuilder.buildFeeBumpTransaction(...)`
+   * (issue #69) — `FeeBumpTransaction` itself is a class with a positional
+   * `(envelope, networkPassphrase)` constructor, not an options-object
+   * factory function, so it cannot be called directly with
+   * `{ innerTransaction, fee, feeSource }`.
+   */
   async feeBumpTransaction(params: {
     transactionXdr: string;
     feeSecretKey: string;
@@ -468,6 +487,12 @@ export class StellarService {
     }
   }
 
+  /**
+   * Merges additional signer signatures into a partially-signed transaction
+   * XDR and submits the result to Horizon.  Callers provide the base64 XDR
+   * returned by `buildPartialTransaction` plus one or more additional
+   * secret keys whose signatures satisfy the remaining threshold weight.
+   */
   async submitWithAdditionalSignatures(params: {
     xdr: string;
     signerSecretKeys: string[];
